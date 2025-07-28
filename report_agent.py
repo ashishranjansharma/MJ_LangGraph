@@ -82,28 +82,146 @@ else:
     graph = None
     state = None
 
+# Agent state definition
+from typing import TypedDict, Annotated
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+    project_data: Dict[str, Any]
+    language: str
+    templates: Dict[str, Any]
+    report: Optional[str]
+    status: str
+
+
+# create a function to load templates
+def load_templates_agent(state: AgentState) -> AgentState:
+    """Load templates for the specified language"""
+    language = state.get("language", "en")
+    
+    if not JINJA2_AVAILABLE:
+        state["status"] = "Template rendering not available"
+        return state
+    
+    try:
+        template_dir = Path(f"templates_{language}")
+        if not template_dir.exists():
+            print(f"Warning: Template directory {template_dir} not found. Using English.")
+            template_dir = Path("templates_en")
+        
+        env = Environment(loader=FileSystemLoader(template_dir))
+        
+        templates = {}
+        for template_name in ["system_prompt", "user_prompt", "user_form"]:
+            try:
+                template = env.get_template(f"{template_name}.jinja")
+                templates[template_name] = template
+            except Exception as e:
+                print(f"Warning: Could not load {template_name} template: {e}")
+        
+        state["templates"] = templates
+        state["status"] = "Templates loaded successfully"
+        return state
+        
+    except Exception as e:
+        print(f"Warning: Could not load templates: {e}")
+        state["templates"] = {}
+        state["status"] = f"Template loading failed: {e}"
+        return state
+
+
 # create a function to generate a report
-def generate_report(state):
-    return {"report": "This is a report"}
+def generate_report_agent(state: AgentState) -> AgentState:
+    """Generate a report using templates and AI"""
+    templates = state.get("templates", {})
+    project_data = state.get("project_data", {})
+    
+    if not templates:
+        state["report"] = "Template rendering not available."
+        state["status"] = "No templates available"
+        return state
+    
+    try:
+        # Render the user form with project data
+        if "user_form" in templates:
+            user_form = templates["user_form"].render(**project_data)
+        else:
+            user_form = str(project_data)
+        
+        # Create the system prompt
+        if "system_prompt" in templates:
+            system_prompt = templates["system_prompt"].render()
+        else:
+            system_prompt = "You are an expert report writer."
+        
+        # Create the user prompt
+        if "user_prompt" in templates:
+            user_prompt = templates["user_prompt"].render(
+                input_data=user_form,
+                project_name=project_data.get("field1", "Project"),
+                **project_data
+            )
+        else:
+            user_prompt = f"Generate a report for: {user_form}"
+        
+        # Combine prompts
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        
+        # Generate report using LLM
+        if llm:
+            response = llm.invoke(full_prompt)
+            state["report"] = response
+            state["status"] = "Report generated successfully"
+        else:
+            state["report"] = "LLM not available for report generation."
+            state["status"] = "No LLM available"
+            
+    except Exception as e:
+        print(f"Error generating report with templates: {e}")
+        state["report"] = f"Error generating report: {e}"
+        state["status"] = f"Report generation failed: {e}"
+    
+    return state
 
 
 # create a function to save a report
-def save_report(state):
-    return {"report": "This is a report"}
+def save_report_agent(state: AgentState) -> AgentState:
+    """Save the generated report (placeholder for future implementation)"""
+    report = state.get("report", "")
+    if report and report != "Template rendering not available.":
+        # Here you could save to database, file, etc.
+        state["status"] = "Report saved successfully"
+    else:
+        state["status"] = "No report to save"
+    return state
 
 
 # create a function to display a report
-def display_report(state):
-    return {"report": "This is a report"}
+def display_report_agent(state: AgentState) -> AgentState:
+    """Display the generated report"""
+    report = state.get("report", "")
+    if report:
+        print(f"Generated Report ({state.get('language', 'en')}):")
+        print("=" * 50)
+        print(report)
+        print("=" * 50)
+        state["status"] = "Report displayed successfully"
+    else:
+        state["status"] = "No report to display"
+    return state
 
 
 # create a state transition
 if graph is not None and state is not None:
-    graph.add_node("generate_report", generate_report)
-    graph.add_node("save_report", save_report)
-    graph.add_node("display_report", display_report)
+    graph.add_node("load_templates", load_templates_agent)
+    graph.add_node("generate_report", generate_report_agent)
+    graph.add_node("save_report", save_report_agent)
+    graph.add_node("display_report", display_report_agent)
 
-    graph.add_edge(START, "generate_report")
+    graph.add_edge(START, "load_templates")
+    graph.add_edge("load_templates", "generate_report")
     graph.add_edge("generate_report", "save_report")
     graph.add_edge("save_report", "display_report")
     graph.add_edge("display_report", END)
@@ -168,51 +286,91 @@ def generate_report_with_templates(
     project_data: Dict[str, Any], 
     language: str = "en"
 ) -> str:
-    """Generate a report using templates and the specified language"""
-    templates = load_templates(language)
+    """Generate a report using templates and the specified language with agentic flow"""
     
-    if not templates:
-        return "Template rendering not available."
+    # Create initial state
+    initial_state = AgentState(
+        messages=[],
+        project_data=project_data,
+        language=language,
+        templates={},
+        report=None,
+        status="Initialized"
+    )
     
-    try:
-        # Render the user form with project data
-        if "user_form" in templates:
-            user_form = templates["user_form"].render(**project_data)
-        else:
-            user_form = str(project_data)
-        
-        # Create the system prompt
-        if "system_prompt" in templates:
-            system_prompt = templates["system_prompt"].render()
-        else:
-            system_prompt = "You are an expert report writer."
-        
-        # Create the user prompt
-        if "user_prompt" in templates:
-            user_prompt = templates["user_prompt"].render(
-                input_data=user_form,
-                project_name=project_data.get("field1", "Project"),
-                **project_data
-            )
-        else:
-            user_prompt = f"Generate a report for: {user_form}"
-        
-        # Combine prompts
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        
-        # Generate report using LLM
-        if llm:
+    # Use agentic flow if LangGraph is available
+    if LANGGRAPH_AVAILABLE and llm and not isinstance(llm, OllamaLLM):
+        try:
+            # Create graph with agentic functions
+            graph = StateGraph(AgentState)
+            
+            graph.add_node("load_templates", load_templates_agent)
+            graph.add_node("generate_report", generate_report_agent)
+            graph.add_node("save_report", save_report_agent)
+            graph.add_node("display_report", display_report_agent)
+
+            graph.add_edge(START, "load_templates")
+            graph.add_edge("load_templates", "generate_report")
+            graph.add_edge("generate_report", "save_report")
+            graph.add_edge("save_report", "display_report")
+            graph.add_edge("display_report", END)
+            
+            compiled_graph = graph.compile()
+            
+            # Execute the agentic flow
+            result = compiled_graph.invoke(initial_state)
+            
+            return result.get("report", "No report generated")
+            
+        except Exception as e:
+            print(f"Error in agentic flow: {e}")
+            # Fallback to direct approach
+    
+    # Fallback for Ollama or when LangGraph is not available
+    if llm is not None:
+        try:
+            # Load templates directly
+            templates = load_templates(language)
+            
+            if not templates:
+                return "Template rendering not available."
+            
+            # Render the user form with project data
+            if "user_form" in templates:
+                user_form = templates["user_form"].render(**project_data)
+            else:
+                user_form = str(project_data)
+            
+            # Create the system prompt
+            if "system_prompt" in templates:
+                system_prompt = templates["system_prompt"].render()
+            else:
+                system_prompt = "You are an expert report writer."
+            
+            # Create the user prompt
+            if "user_prompt" in templates:
+                user_prompt = templates["user_prompt"].render(
+                    input_data=user_form,
+                    project_name=project_data.get("field1", "Project"),
+                    **project_data
+                )
+            else:
+                user_prompt = f"Generate a report for: {user_form}"
+            
+            # Combine prompts
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
+            
+            # Generate report using LLM
             response = llm.invoke(full_prompt)
             return response
-        else:
-            return "LLM not available for report generation."
-            
-    except Exception as e:
-        print(f"Error generating report with templates: {e}")
-        return f"Error generating report: {e}"
+                
+        except Exception as e:
+            print(f"Error generating report with templates: {e}")
+            return f"Error generating report: {e}"
+    else:
+        return "LLM not available for report generation."
 
 
-# Example usage function
 def generate_language_report(project_data: Dict[str, Any], language: str = "en") -> str:
-    """Generate a report in the specified language using templates"""
+    """Generate a report in the specified language using templates with agentic flow"""
     return generate_report_with_templates(llm, project_data, language)      
