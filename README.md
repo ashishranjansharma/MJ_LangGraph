@@ -83,10 +83,14 @@ docker-compose logs -f app
 - `PYTHONUNBUFFERED` - Disable Python output buffering
 - `GEMINI_API_KEY` - Google Gemini API key for AI-powered report generation
 - `GOOGLE_APPLICATION_CREDENTIALS` - Path to Google Cloud service account credentials (optional)
+- `OLLAMA_HOST` - Ollama host (default: host.docker.internal for Docker)
+- `OLLAMA_PORT` - Ollama port (default: 11434)
 
-## Google Cloud Setup
+## AI Setup
 
-This application uses Google Generative AI for enhanced report generation. To use this feature:
+This application supports multiple AI providers for enhanced report generation:
+
+### Option 1: Google Generative AI (Gemini) - Recommended
 
 1. **Get a Gemini API Key:**
    - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
@@ -108,6 +112,40 @@ This application uses Google Generative AI for enhanced report generation. To us
    export GEMINI_API_KEY=your_api_key_here
    python app.py
    ```
+
+### Option 2: Ollama (Local AI)
+
+If you don't have a Gemini API key, the application will automatically fallback to Ollama:
+
+1. **Install Ollama:**
+   ```bash
+   # macOS/Linux
+   curl -fsSL https://ollama.ai/install.sh | sh
+   
+   # Or download from https://ollama.ai/download
+   ```
+
+2. **Start Ollama and pull a model:**
+   ```bash
+   ollama serve
+   ollama pull llama3.2
+   ```
+
+3. **Run the application:**
+   ```bash
+   # Docker will automatically connect to Ollama
+   docker-compose up
+   
+   # Or run locally
+   python app.py
+   ```
+
+### AI Provider Priority
+
+The application will use AI providers in this order:
+1. Google Generative AI (if API key is provided)
+2. Ollama (if available and Gemini is not)
+3. Fallback mode (no AI features)
 
 ## Health Checks
 

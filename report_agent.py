@@ -19,25 +19,49 @@ except ImportError:
     print("Warning: langchain-google-genai not available. AI features disabled.")
     LANGCHAIN_AVAILABLE = False
 
+# Try to import Ollama as fallback
+try:
+    from langchain_ollama import OllamaLLM
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    print("Warning: langchain-ollama not available. Ollama fallback disabled.")
+    OLLAMA_AVAILABLE = False
+
 # Get API key from environment variable
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Initialize LLM only if API key is available
+# Initialize LLM with fallback to Ollama
 llm: Optional[Any] = None
 if GEMINI_API_KEY and LANGCHAIN_AVAILABLE:
     try:
         llm = GoogleGenerativeAI(model="gemini-2.0-flash-001")
+        print("Using Google Generative AI (Gemini)")
     except Exception as e:
         print(f"Warning: Could not initialize Google Generative AI: {e}")
         llm = None
-else:
+
+# Fallback to Ollama if Gemini is not available
+if llm is None and OLLAMA_AVAILABLE:
+    try:
+        llm = OllamaLLM(model="llama3.2")
+        print("Using Ollama with llama3.2 model")
+    except Exception as e:
+        print(f"Warning: Could not initialize Ollama: {e}")
+        llm = None
+
+if llm is None:
     if not GEMINI_API_KEY:
-        print("Warning: GEMINI_API_KEY not set. AI-powered features will be disabled.")
+        print("Warning: GEMINI_API_KEY not set.")
     if not LANGCHAIN_AVAILABLE:
-        print("Warning: langchain-google-genai not available. AI features disabled.")
+        print("Warning: langchain-google-genai not available.")
+    if not OLLAMA_AVAILABLE:
+        print("Warning: langchain-community not available for Ollama.")
+    print("AI-powered features will be disabled.")
+
 
 # create a state graph
-if LANGGRAPH_AVAILABLE and llm:
+if LANGGRAPH_AVAILABLE and llm and not isinstance(llm, OllamaLLM):
+    # Only use StateGraph with non-Ollama LLMs
     graph: Optional[StateGraph] = StateGraph(llm)  # create a state graph
 
     # create a state
@@ -84,6 +108,17 @@ if graph is not None and state is not None:
         print(result["report"])
     else:
         print("No report generated")
+elif llm is not None and isinstance(llm, OllamaLLM):
+    # Use Ollama directly without StateGraph
+    print("Using Ollama for report generation...")
+    try:
+        # Simple prompt for report generation
+        prompt = "Generate a brief project report summary."
+        response = llm.invoke(prompt)
+        print(f"Ollama Report: {response}")
+    except Exception as e:
+        print(f"Error generating report with Ollama: {e}")
+        print("Fallback report - AI features disabled")
 else:
     print("AI features not available - using fallback report generation")
     fallback_report = {"report": "Fallback report - AI features disabled"}

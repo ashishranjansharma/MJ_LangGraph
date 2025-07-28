@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.116.1",
     "langchain-google-genai>=2.1.8",
+    "langchain-ollama>=0.1.0",
     "langgraph>=0.5.4",
     "pydantic>=2.11.7",
     "uvicorn>=0.35.0",
