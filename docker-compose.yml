@@ -11,6 +11,8 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials.json
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     volumes:
       # Optional: Mount source code for development
       # - .:/app

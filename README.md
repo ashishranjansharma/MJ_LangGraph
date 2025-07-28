@@ -81,6 +81,33 @@ docker-compose logs -f app
 
 - `PYTHONPATH` - Python path (set to `/app` in container)
 - `PYTHONUNBUFFERED` - Disable Python output buffering
+- `GEMINI_API_KEY` - Google Gemini API key for AI-powered report generation
+- `GOOGLE_APPLICATION_CREDENTIALS` - Path to Google Cloud service account credentials (optional)
+
+## Google Cloud Setup
+
+This application uses Google Generative AI for enhanced report generation. To use this feature:
+
+1. **Get a Gemini API Key:**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key
+   - Set the environment variable: `export GEMINI_API_KEY=your_api_key_here`
+
+2. **For Docker:**
+   ```bash
+   # Set the API key when running docker-compose
+   GEMINI_API_KEY=your_api_key_here docker-compose up
+   
+   # Or create a .env file with your API key
+   echo "GEMINI_API_KEY=your_api_key_here" > .env
+   docker-compose up
+   ```
+
+3. **For Local Development:**
+   ```bash
+   export GEMINI_API_KEY=your_api_key_here
+   python app.py
+   ```
 
 ## Health Checks
 

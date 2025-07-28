@@ -5,6 +5,7 @@ import io
 from enum import Enum
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date
+from report_agent import *
 
 
 # Enums for report types and formats
