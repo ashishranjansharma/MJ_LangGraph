@@ -5,7 +5,7 @@ from datetime import datetime, date
 import tempfile
 import os
 from util import ProjectInfo, ReportType, ReportFormat, ReportRequest, ReportResponse, SAMPLE_PROJECTS, get_project_by_id, convert_to_csv
-from report_agent import generate_language_report, generate_summary_report, generate_financial_report, generate_performance_report
+from report_agent import generate_language_report
 
 
 # Initialize FastAPI app
@@ -61,26 +61,40 @@ async def generate_report(request: ReportRequest):
             raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
         projects.append(project)
     
-    # Generate report based on type
-    if request.report_type == ReportType.SUMMARY:
-        report_data = generate_summary_report(projects, request.include_tasks)
-    elif request.report_type == ReportType.FINANCIAL:
-        report_data = generate_financial_report(projects)
-    elif request.report_type == ReportType.PERFORMANCE:
-        report_data = generate_performance_report(projects)
-    elif request.report_type == ReportType.DETAILED:
-        # Combine all report types for detailed report
-        summary_data = generate_summary_report(projects, request.include_tasks)
-        financial_data = generate_financial_report(projects)
-        performance_data = generate_performance_report(projects)
-        
-        report_data = {
-            "summary": summary_data,
-            "financial": financial_data,
-            "performance": performance_data
-        }
-    else:
-        raise HTTPException(status_code=400, detail="Invalid report type")
+    # Generate report using template-based AI generation
+    project_data = {
+        "field1": projects[0].name if projects else "Project",
+        "field2": "Business",
+        "field3": "Karnataka, India",
+        "field4": "12 months",
+        "field5": "Project Manager",
+        "field6": "5 years experience",
+        "field7": "Experienced professional",
+        "field8": f"₹{sum(p.budget for p in projects):,.0f}" if projects else "₹0",
+        "field9": f"₹{sum(p.spent for p in projects):,.0f}" if projects else "₹0",
+        "field10": f"₹{sum(p.budget - p.spent for p in projects):,.0f}" if projects else "₹0",
+        "field11": f"{sum(p.completion_percentage for p in projects) / len(projects):.1f}%" if projects else "0%",
+        "field12": f"Generate {request.report_type.value} report for {len(projects)} projects",
+        "field13": "Comprehensive project analysis",
+        "field14": "Data accuracy and completeness",
+        "field15": "Improved project management",
+        "format": "business_plan",
+        "language": "en"
+    }
+    
+    # Generate AI-powered report
+    report_content = generate_language_report(project_data, "en")
+    
+    # Structure the response data
+    report_data = {
+        "report_type": request.report_type.value,
+        "total_projects": len(projects),
+        "total_budget": sum(p.budget for p in projects) if projects else 0,
+        "total_spent": sum(p.spent for p in projects) if projects else 0,
+        "average_completion": sum(p.completion_percentage for p in projects) / len(projects) if projects else 0,
+        "projects": [p.dict() for p in projects],
+        "ai_generated_content": report_content
+    }
     
     # Generate unique report ID
     report_id = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{request.report_type.value}"
