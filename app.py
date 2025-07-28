@@ -5,6 +5,7 @@ from datetime import datetime, date
 import tempfile
 import os
 from util import *
+from report_agent import generate_language_report
 
 
 # Initialize FastAPI app
@@ -141,6 +142,47 @@ async def get_report_types():
     return {
         "report_types": [{"value": rt.value, "name": rt.value.title()} for rt in ReportType],
         "formats": [{"value": rf.value, "name": rf.value.upper()} for rf in ReportFormat]
+    }
+
+
+@app.post("/reports/generate-template")
+async def generate_template_report(request: Dict[str, Any]):
+    """Generate a report using templates and AI"""
+    try:
+        # Extract project data and language
+        project_data = request.get("project_data", {})
+        language = request.get("language", "en")
+        
+        # Validate language
+        if language not in ["en", "kn"]:
+            raise HTTPException(status_code=400, detail="Language must be 'en' or 'kn'")
+        
+        # Generate report using templates
+        report = generate_language_report(project_data, language)
+        
+        # Generate unique report ID
+        report_id = f"template_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{language}"
+        
+        return {
+            "report_id": report_id,
+            "generated_at": datetime.now(),
+            "language": language,
+            "report": report,
+            "status": "success"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating template report: {str(e)}")
+
+
+@app.get("/reports/languages")
+async def get_supported_languages():
+    """Get supported languages for template reports"""
+    return {
+        "supported_languages": [
+            {"code": "en", "name": "English"},
+            {"code": "kn", "name": "ಕನ್ನಡ (Kannada)"}
+        ]
     }
 
 if __name__ == "__main__":

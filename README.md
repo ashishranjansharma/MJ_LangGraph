@@ -76,6 +76,8 @@ docker-compose logs -f app
 - `POST /reports/generate` - Generate a report
 - `GET /reports/download` - Download a report
 - `GET /reports/types` - Get available report types
+- `POST /reports/generate-template` - Generate AI-powered template report
+- `GET /reports/languages` - Get supported languages for templates
 
 ## Environment Variables
 
@@ -146,6 +148,75 @@ The application will use AI providers in this order:
 1. Google Generative AI (if API key is provided)
 2. Ollama (if available and Gemini is not)
 3. Fallback mode (no AI features)
+
+## Template-Based Report Generation
+
+The application supports AI-powered report generation using customizable templates in multiple languages:
+
+### Supported Languages
+- **English (en)** - Default language with business plan templates
+- **Kannada (kn)** - ಕನ್ನಡ language support with localized templates
+
+### Template Structure
+Each language has its own template directory:
+- `templates_en/` - English templates
+- `templates_kn/` - Kannada templates
+
+Each directory contains:
+- `system_prompt.jinja` - AI system instructions
+- `user_prompt.jinja` - Report structure and formatting
+- `user_form.jinja` - Data input template
+
+### Using Template Reports
+
+**API Endpoint:**
+```bash
+POST /reports/generate-template
+```
+
+**Request Body:**
+```json
+{
+  "project_data": {
+    "field1": "Project Name",
+    "field2": "Project Type",
+    "field3": "Location",
+    "field4": "Duration",
+    "field5": "Promoter Name",
+    "field6": "Experience",
+    "field7": "Background",
+    "field8": "Market Size",
+    "field9": "Production Cost",
+    "field10": "Selling Price",
+    "field11": "Profit Percentage",
+    "field12": "Project Objective",
+    "field13": "Unique Selling Proposition",
+    "field14": "Key Challenges",
+    "field15": "Key Opportunities",
+    "format": "business_plan",
+    "language": "en"
+  },
+  "language": "en"
+}
+```
+
+**Response:**
+```json
+{
+  "report_id": "template_report_20241201_143022_en",
+  "generated_at": "2024-12-01T14:30:22",
+  "language": "en",
+  "report": "Generated AI report content...",
+  "status": "success"
+}
+```
+
+### Testing Templates
+
+Run the test script to verify template functionality:
+```bash
+uv run python test_templates.py
+```
 
 ## Health Checks
 
